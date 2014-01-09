@@ -5,14 +5,29 @@ $bag["aliases"] = array();
 $bag["dependenciesLoaded"] = array();
 $bag["instances"] = array();
 
+/**
+ * Class proto
+ */
 class proto {
 	public function __call($fn, $args) {
 		return call_user_func_array($this->{$fn}, $args);
 	}
 }
 
+/**
+ * Class LoaderException
+ */
 class LoaderException Extends Exception {};
 
+/**
+ * @param      $name
+ * @param      $alias
+ * @param      $dependencies
+ * @param null $fnc
+ * @param int  $comfort
+ *
+ * @throws LoaderException
+ */
 function register($name, $alias, $dependencies, $fnc = null, $comfort = 0) {
 	global $bag;
 
@@ -72,6 +87,12 @@ function register($name, $alias, $dependencies, $fnc = null, $comfort = 0) {
 	);
 }
 
+/**
+ * @param      $name
+ * @param bool $instance
+ *
+ * @return mixed
+ */
 function req($name, $instance = false) {
 	global $bag;
 
@@ -104,6 +125,9 @@ function req($name, $instance = false) {
 	}
 }
 
+/**
+ *
+ */
 register("slim.dns", "dns", array(), function(&$factory, $require, $e) {
 	$storage = array();
 
