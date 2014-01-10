@@ -1,101 +1,132 @@
 <?php
-require_once "Bag.php";
+//require_once "Bag.php";
 
-class LoaderException Extends Exception {};
+class ModulizerException Extends Exception {};
 
-class proto {
+class __proto__ extends stdClass {
 	public function __call($fn, $args) {
 		return call_user_func_array($this->{$fn}, $args);
 	}
 }
 
-class Modulizer {
-    public static function register( /* $name, $alias, $dependencies, $fnc = null, $comfort = 0 */ ) {
-        $args = func_get_args();
-        $argsC = func_num_args();
-        
-        if( $argsC < 3 ) {
-            throw new LoaderException("Too few arguments!");
-        }
-        
-        $name = $args[0];
-        $comfort = 0;
-        if( is_array($args[1]) ) {
-            $alias = null;
-            $dependecies = $args[1];
-            $fnc = $args[2];
-            if( $argsC == 4 )
-                $comfort = $args[3];
-        }
-        else {
-            $alias = $args[1];
-            $dependencies = $args[2];
-            $fnc = $args[3];
-            if( $argC == 5 )
-                $comfort = $args[4];
-        }
+class Jar {
+    static $aliases = array();
+    static $modules = array();
 
-        //Check if this module already registered
-    	/*if( Bag::get($name) || (!is_array($alias) && Bag::byAlias($alias)) ) {
-    		if( (array_key_exists($name, $bag) && $bag[$name]["loaded"]) || (!is_Array($alias) && array_key_exists($alias, $bag) && $bag[$alias]["loaded"]) )
-    			throw new LoaderException("Registered an existing module ({$name})");
-    	}*/
-    
-        //Check all dependencies are loaded
-        if( $depCount = count($dependencies) ) {
-        	for($i=0;$i<$depCount;$i++) {
-        		if( !Bag::get($dependencies[$i]) ) {
-        			throw new LoaderException("Call a module with unresolved dependencies");
-        		}
-        	}
-        }
-        
-    	$factory = new stdclass;
-    	if( $fnc && !$comfort ) {
-    		$fnc($factory, function($n) { return req($n);}, new proto);
-    	}
-    	
-    	//Register module loaded
-    	Bag::alias($name, $name);
-    	if( $alias ) {
-    		Bag::alias($alias, $name);
-    	}
-    	
-    	if( $comfort ) {
-    		$e = new proto;
-    		Bag::set($name, array(
-    			"exports" => $e ,
-    			"loaded" => false,
-    			"a" => $name,
-    			"b" => $dependencies,
-    			"c" => $fnc
-    		));
-    		return;
-    	}
-
-    	$exports = null;
-    	if( isset($factory->exports) )
-    		$exports = $factory->exports;
-    
-    	Bag::set($name, array(
-    		"exports" => $exports,
-    		"dependencies" => $dependencies,
-    		"loaded" => true
-    	));
+    static function exists($module_name) {
+        if(array_key_exists($module_name, self::$modules))
+            return true;
+        if(array_key_exists($module_name, self::$aliases))
+            return true;
+        return false;
     }
 
-    function get($name, $instance = false) {
-    	if(!$exp = Bag::get($name))
-    		if(!$exp = Bag::byAlias($name)) 
-    		    throw new LoaderException("Requiring an unknown module.");
-    
-    	if( $exp ) {
-    		if( isset($exp["loaded"]) && !$exp["loaded"] ) {
-    			Modulizer::register($exp["a"], $exp["b"], $exp["c"]);
-    			$exp["exports"] = Modulizer::get($name, $instance);
-    		}
-    	}
-		$e = $exp["exports"];
-		return $e;
+    static function &get($module_name) {
+        $module_name = strtolower($module_name);
+
+        if(self::exists($module_name)) {
+            if(array_key_exists($module_name, self::$modules))
+                return self::$modules[$module_name];
+
+            return self::$modules[self::$aliases[$module_name]];
+        }
+
+        throw new ModulizerException("Module with name {$module_name} is not in the Jar..");
+    }
+
+    static function add($module_name, $exports) {
+        self::$modules[strtolower($module_name)] = $exports;
+    }
+
+    static function alias($alias, $module) {
+        static::$aliases[strtolower($alias)] = strtolower($module);
+    }
+}
+
+class Factory extends __proto__ {
+    public $modulizer;
+    public $exports = null;
+
+    public function __construct() {
+        $this->modulizer = new __proto__();
+        $this->modulizer->loadModule = array();
+    }
+}
+
+class Modulizer {
+
+    static $factory;
+
+    public static function init($configuration = array()) {
+        self::$factory = new Factory();
+    }
+
+    public static function register() {
+        $args = func_get_args();
+        $args_count = func_num_args();
+
+        //module skeleton
+        $module = array(
+            "name" => null,
+            "alias" => null,
+            "callable" => null,
+            "dependencies" => array(),
+        );
+
+        if($args_count < 2)
+            throw new ModulizerException("At least 2 parameters needed...");
+
+        //get name of the module
+        if(is_array($args[0])) {
+            $module['name'] = $args[0][0];
+            $module['alias'] = $args[0][1];
+        } else {
+            $module['name'] = $args[0];
+        }
+
+        //get function and dependencies
+        if(is_callable($args[1])) {
+            $module['callable'] = $args[1];
+        }
+        if(($f = is_array($args[1])) || (($args_count == 3) && (is_array($args[2])))) {
+            $module['dependencies'] = ($f? $args[1] : $args[2]);
+        }
+
+        //lets start loading the module
+        //first we check if all dependencies are loaded and if not load them :D
+        foreach($module['dependencies'] as $dependency) {
+            if(!Jar::exists($dependency))
+                self::load($dependency);
+        }
+        $f = &self::$factory;
+        //now run this shit
+        call_user_func($module['callable'], $f, new __proto__);
+
+        Jar::add($module['name'], self::$factory->exports);
+        self::$factory->exports = null;
+
+        if($module['alias'])
+            Jar::alias($module['alias'], $module['name']);
+    }
+
+    public static function &get($module_name) {
+        if(Jar::exists($module_name)) {
+            //if its loaded...
+            return Jar::get($module_name);
+        } else {
+            //if not try to call factory function for it
+            self::load($module_name);
+
+            if(!Jar::exists($module_name))
+                throw new ModulizerException("Requested module ({$module_name}) wasn't loaded, tried call 'loadModule' callbacks still no luck!");
+
+            return Jar::get($module_name);
+        }
+    }
+
+    public static function load($module_name) {
+        $f = &self::$factory;
+        foreach(self::$factory->modulizer->loadModule as $loader)
+            call_user_func($loader, $f, $module_name);
     }
 }
