@@ -67,12 +67,14 @@ class Modulizer_ClassLoader {
 
     public function load($class_name, $test_for_alias = true) {
         //reqular classes without alias
-        foreach($this->namespaces as $namespace => $path) {
+        foreach($this->namespaces as $namespace => $paths) {
             if(strpos($class_name, $namespace) !== FALSE) {
-                $class_path = str_replace(array($namespace, "\\"), array("", "/"), $class_name);
-                if(file_exists($class_file = $path.$class_path.".php")) {
-                    require_once $class_file;
-                    return;
+                foreach($paths as $path) {
+                    $class_path = str_replace(array($namespace."\\", "\\"), array($path, "/"), $class_name);
+                    if(file_exists($class_file = $class_path.".php")) {
+                        require_once $class_file;
+                        return;
+                    }
                 }
             }
         }
@@ -82,7 +84,8 @@ class Modulizer_ClassLoader {
         foreach($this->aliases as $ns => $alias) {
             if(strrpos($class_name, $alias) !== FALSE) {
                 $__class_name = str_replace($alias, $ns, $class_name);
-                $this->load($__class_name, false);
+                if(!class_exists($__class_name))
+                    $this->load($__class_name, false);
                 class_alias($__class_name, $class_name);
                 return;
             }
@@ -187,7 +190,7 @@ class Modulizer {
 
         if($module['alias']) {
             Modulizer_Jar::alias($module['alias'], $module['name']);
-            self::$factory->classLoader->addAlias($ns, $module['alias']);
+            self::$factory->classLoader->addAlias($ns, ucfirst($module['alias']));
         }
 
     }
