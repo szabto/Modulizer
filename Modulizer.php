@@ -97,6 +97,7 @@ class Factory extends __proto__ {
     public $exports = null;
 
     public function __construct() {
+        $this->classLoader = new Modulizer_ClassLoader();
         /* Download module from repository */
         $this->moduleLoaders[] = function(&$factory, $module_name) {};
         /* end of module downloader */
