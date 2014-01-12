@@ -54,8 +54,8 @@ class Modulizer_ClassLoader {
     }
 
     public function addNamespace($ns, $path) {
-        if(is_array($this->namespaces[$ns])) {
-            $this->namespaces[$ns][$path];
+        if(array_key_exists($ns, $this->namespaces)) {
+            $this->namespaces[$ns][] = $path;
             return;
         }
         $this->namespaces[$ns] = array($path);
@@ -134,6 +134,7 @@ class Modulizer {
 
     public static function init($configuration = array()) {
         self::$factory = new Factory();
+        self::$factory->setConfig($configuration);
     }
 
     public static function register() {
