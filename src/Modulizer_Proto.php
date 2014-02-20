@@ -7,5 +7,7 @@
  */
 
 class Modulizer_Proto {
-
+    public function __call($fn, $args) {
+        return call_user_func_array($this->{$fn}, $args);
+    }
 } 

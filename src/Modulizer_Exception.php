@@ -6,6 +6,6 @@
  * Time: 9:05
  */
 
-class Modulizer_Exception {
+class Modulizer_Exception extends Exception{
 
 } 
